@@ -1,7 +1,8 @@
-# THIS PROJECT IS ARCHIVED  
+# THIS PROJECT IS COMMUNITY MAINTAINED
 Intel will not provide or guarantee development of or support for this project, including but not limited to, maintenance, bug fixes, new releases or updates.  
 Patches to this project are no longer accepted by Intel.  
-This project has been identified as having known security issues. 
+This project has been identified as having known security issues.
+I'm just trying to keep my ARC running the models I need at full speed.
 
 #  💫 Intel® LLM Library for PyTorch* 
 <p>
