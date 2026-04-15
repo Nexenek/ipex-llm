@@ -1086,6 +1086,12 @@ def _optimize_pre(model, qtype=None):
     elif model.config.model_type == "qwen3_moe":
         from ipex_llm.transformers.models.qwen3_moe import merge_qkv
         model.apply(merge_qkv)
+    elif model.config.model_type in ("qwen3_5", "qwen3_next"):
+        from ipex_llm.transformers.models.qwen3_5 import merge_qkv
+        model.apply(merge_qkv)
+    elif model.config.model_type == "qwen3_5_moe":
+        from ipex_llm.transformers.models.qwen3_5_moe import merge_qkv
+        model.apply(merge_qkv)
     return model
 
 
@@ -2136,6 +2142,57 @@ def _optimize_post(model):
         convert_forward(model, module.Qwen3MoeModel, qwen3_moe_model_forward)
         convert_forward(model, module.Qwen3MoeAttention, qwen3_attention_forward)
         convert_forward(model, module.Qwen3MoeSparseMoeBlock, qwen3_moe_moe_forward)
+    elif model.config.model_type in ("qwen3_5", "qwen3_next"):
+        modeling_module_name = model.__class__.__module__
+        module = importlib.import_module(modeling_module_name)
+        from ipex_llm.transformers.models.common import rms_norm_forward
+        from ipex_llm.transformers.models.common import mlp_silu_forward
+        from ipex_llm.transformers.models.qwen3_5 import qwen3_5_model_forward
+        from ipex_llm.transformers.models.qwen3_5 import qwen3_5_attention_forward
+        # Class names differ slightly between the transitional ``qwen3_next``
+        # module and the final ``qwen3_5`` module; look up both and patch
+        # whichever exists.
+        for rms_name in ("Qwen3_5RMSNorm", "Qwen3NextRMSNorm"):
+            cls = getattr(module, rms_name, None)
+            if cls is not None:
+                convert_forward(model, cls, rms_norm_forward)
+        for model_name in ("Qwen3_5Model", "Qwen3NextModel"):
+            cls = getattr(module, model_name, None)
+            if cls is not None:
+                convert_forward(model, cls, qwen3_5_model_forward)
+        for attn_name in ("Qwen3_5Attention", "Qwen3NextAttention"):
+            cls = getattr(module, attn_name, None)
+            if cls is not None:
+                convert_forward(model, cls, qwen3_5_attention_forward)
+        for mlp_name in ("Qwen3_5MLP", "Qwen3NextMLP"):
+            cls = getattr(module, mlp_name, None)
+            if cls is not None:
+                convert_forward(model, cls, mlp_silu_forward)
+        # Intentionally leave the DeltaNet block on the HuggingFace reference
+        # forward in this first landing — correctness before a fused kernel.
+    elif model.config.model_type == "qwen3_5_moe":
+        modeling_module_name = model.__class__.__module__
+        module = importlib.import_module(modeling_module_name)
+        from ipex_llm.transformers.models.common import rms_norm_forward
+        from ipex_llm.transformers.models.qwen3_5_moe import qwen3_5_moe_model_forward
+        from ipex_llm.transformers.models.qwen3_5_moe import qwen3_5_moe_moe_forward
+        from ipex_llm.transformers.models.qwen3_5 import qwen3_5_attention_forward
+        for rms_name in ("Qwen3_5MoeRMSNorm", "Qwen3_5MoERMSNorm"):
+            cls = getattr(module, rms_name, None)
+            if cls is not None:
+                convert_forward(model, cls, rms_norm_forward)
+        for model_name in ("Qwen3_5MoeModel", "Qwen3_5MoEModel"):
+            cls = getattr(module, model_name, None)
+            if cls is not None:
+                convert_forward(model, cls, qwen3_5_moe_model_forward)
+        for attn_name in ("Qwen3_5MoeAttention", "Qwen3_5MoEAttention"):
+            cls = getattr(module, attn_name, None)
+            if cls is not None:
+                convert_forward(model, cls, qwen3_5_attention_forward)
+        for moe_name in ("Qwen3_5MoeSparseMoeBlock", "Qwen3_5MoESparseMoeBlock"):
+            cls = getattr(module, moe_name, None)
+            if cls is not None:
+                convert_forward(model, cls, qwen3_5_moe_moe_forward)
     return model
 
 

@@ -69,6 +69,13 @@ def load_gguf_model(fpath: str, dtype: torch.dtype = torch.float, low_bit: str =
         elif model_family == "mpt":
             from .models.mpt import load_gguf_mpt
             model, tokenizer = load_gguf_mpt(loader, dtype)
+        elif model_family in ("qwen35", "qwen3_5", "qwen3.5",
+                              "qwen3_next", "qwen3next"):
+            from .models.qwen3_5 import load_gguf_qwen3_5
+            model, tokenizer = load_gguf_qwen3_5(loader, dtype, low_bit)
+        elif model_family in ("qwen35moe", "qwen3_5_moe", "qwen3.5moe"):
+            from .models.qwen3_5 import load_gguf_qwen3_5_moe
+            model, tokenizer = load_gguf_qwen3_5_moe(loader, dtype, low_bit)
         else:
             invalidInputError(False, f"Unsupported model family: {model_family}")
 

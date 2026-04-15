@@ -28,6 +28,13 @@ logger = logging.get_logger(__name__)
 class ModelWorker:
     def __init__(self, checkpoint, low_bit, model_type="normal", torch_dtype=torch.float16):
         self.dtype = torch_dtype
+        # When a GGUF file is loaded below the loader returns a tokenizer
+        # alongside the model (HF tokenizers are not discoverable from a
+        # ``.gguf`` path alone). Callers that relied on loading the
+        # tokenizer separately can check ``self.tokenizer`` and use it
+        # when set, falling back to ``AutoTokenizer.from_pretrained``
+        # otherwise.
+        self.tokenizer = None
         start = time.perf_counter()
         if model_type == "audio":
             self.model = self.load_model(checkpoint, low_bit, "audio")
@@ -54,6 +61,13 @@ class ModelWorker:
                                                               optimize_model=True,
                                                               trust_remote_code=True,
                                                               use_cache=True)
+        elif model_path.endswith(".gguf") and os.path.isfile(model_path):
+            from ipex_llm.transformers.gguf.api import load_gguf_model
+            model, tokenizer = load_gguf_model(model_path, dtype=self.dtype,
+                                               low_bit=low_bit)
+            self.tokenizer = tokenizer
+            model = model.eval().to("xpu")
+            return model
         else:
             from ipex_llm.transformers import AutoModelForCausalLM, AutoModel
             modules = None
